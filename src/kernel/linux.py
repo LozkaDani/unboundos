@@ -4,11 +4,15 @@ from pathlib import Path
 import time as t
 import shutil
 import shlex
+import sys
 
 
+sf = None
 usr_now = None
 hostname = ""
 commands = []
+
+finded_apps = []
 
 class User:
     def __init__(self, username, password=None, isroot=False):
@@ -136,6 +140,35 @@ class User:
         with open(file_path, 'w') as f:
             json.dump(users, f, indent=4)
 
+def check_apps():
+    global finded_apps, sf
+    current_dir = Path(".")
+    items = list(current_dir.iterdir())
+    for item in items:
+        # Проверяем, что это файл и имя совпадает
+        if item.is_file() and item.name == "slowfetch.py":
+            print("Founded slowfetch.py!")
+            
+            # Добавляем текущую директорию в путь для импорта
+            current_dir_path = str(current_dir.absolute())
+            if current_dir_path not in sys.path:
+                sys.path.insert(0, current_dir_path)
+            
+            try:
+                # Правильный импорт модуля
+                import slowfetch
+                print("Successfully imported slowfetch module!")
+                finded_apps.append("slowfetch")
+                sf = slowfetch
+                #print(finded_apps)
+
+                
+            except ImportError as e:
+                print(f"Error importing slowfetch: {e}")
+            
+            return True  # Выходим из цикла после нахождения файла
+        else:
+            pass
 
 def create_user_interactive():
     username = input("User name: ")
@@ -154,7 +187,7 @@ def login_konsole():
 
 
 def load_commands():
-    global commands
+    global commands, finded_apps
     commands_file = Path("./root/system/commands.txt")
     commands = []
 
@@ -165,6 +198,11 @@ def load_commands():
                     command = line.strip()
                     if command and not command.startswith('#'):  # Пропускаем пустые строки и комментарии
                         commands.append(command)
+            if finded_apps != None:
+                print("Loading app's commands...")
+                for app in finded_apps:
+                    commands.append(app)
+                    #print(commands)
         except Exception as e:
             print(f"Error loading commands: {e}")
 
@@ -172,7 +210,7 @@ def load_commands():
 
 
 def check_command(command):
-    global commands
+    global commands, finded_apps, is_true
 
     # Разделяем команду и аргументы
     parts = command.split()
@@ -241,6 +279,15 @@ def check_command(command):
             find_command(command)
         elif cmd == "gute":
             start_gute()
+        elif cmd == "clear":
+            for i in range(80):
+                print("")
+        elif cmd == "slowfetch":
+            if sf is not None:
+                slowfetch_output = sf.slowfetch_class()
+                #slowfetch_output.slowfetch_out()
+            else:
+                print("Slowfetch is not installed or loaded!")
         else:
             print(f"Command {cmd} is recognized but not implemented yet")
     else:
@@ -467,6 +514,7 @@ def cfile_command(command):
         print(f"File with that name is existing at {os.getcwd()}")
 
 def help_command():
+    global finded_apps
     print("Commands: ")
     print("------BASE COMMANDS------")
     print("unbound - package manager. -S -R")
@@ -489,8 +537,11 @@ def help_command():
     print("mv - move/rename files. use '' to move dirs and files with spaces in name. mv root/system/commands.txt root/ because you are moving files relative to the directory where you are running the command.")
     print("pwd - prints current dir")
     print("find - find files/dirs. use '' to find files/dirs with spaces in name. find 'my source.txt'")
+    print("clear - clears screen.")
     print("------APPS------")
-    print("gute - Graphic Ubound Text Editor")
+    print("gute - Graphic Unbound Text Editor")
+    for app in finded_apps:
+        print(f"{app} - type {app} to use it.")
 
 def change_hostname_command():
     global hostname
@@ -550,6 +601,9 @@ def system_dir_load():
     with open("./root/system/hostname.unbound", "r") as file:
         hostname = " ".join(file.readlines())
 
+for i in range(70):
+    print("")
+check_apps()
 load_commands()
 system_dir_load()
 want_reg()
